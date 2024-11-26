@@ -25,3 +25,36 @@
 ## **Diagram Sistem**
 Berikut adalah gambaran umum arsitektur sistem:  
 *(soon)*  
+
+## **Tabel GPIO**
+Berikut adalah daftar pin GPIO yang digunakan dalam proyek ini:
+
+| **Pin GPIO** | **Fungsi**         |
+|--------------|--------------------|
+| GPIO23       | ...                |
+| GPIO22       | ...                |
+| GPIO01       | ...                |
+| GPIO03       | ...                |
+| GPIO21       | ...                |
+| GPIO19       | ...                |
+| GPIO18       | ...                |
+| GPIO05       | ...                |
+| GPIO17       | ...                |
+| GPIO16       | ...                |
+| GPIO04       | ...                |
+| GPIO02       | ...                |
+| GPIO15       | ...                |
+| GPIO36       | ...                |
+| GPIO39       | ...                |
+| GPIO34       | ...                |
+| GPIO35       | ...                |
+| GPIO32       | ...                |
+| GPIO33       | ...                |
+| GPIO25       | ...                |
+| GPIO26       | ...                |
+| GPIO27       | ...                |
+| GPIO14       | ...                |
+| GPIO12       | ...                |
+| GPIO13       | ...                |
+
+
