@@ -31,30 +31,30 @@ Berikut adalah daftar pin GPIO yang digunakan dalam proyek ini:
 
 | **Pin GPIO** | **Fungsi**         |
 |--------------|--------------------|
-| GPIO23       | ...                |
-| GPIO22       | ...                |
-| GPIO01       | ...                |
-| GPIO03       | ...                |
-| GPIO21       | ...                |
-| GPIO19       | ...                |
-| GPIO18       | ...                |
-| GPIO05       | ...                |
-| GPIO17       | ...                |
-| GPIO16       | ...                |
-| GPIO04       | ...                |
-| GPIO02       | ...                |
-| GPIO15       | ...                |
-| GPIO36       | ...                |
+| GPIO23       |                 |
+| GPIO22       | Saklar 3               |
+| GPIO01       | Saklar 2               |
+| GPIO03       | Saklar 1               |
+| GPIO21       | Relay 8                |
+| GPIO19       | Relay 7                |
+| GPIO18       | Relay 6                |
+| GPIO05       | Relay 5                |
+| GPIO17       | Relay 4                |
+| GPIO16       | Relay 3                |
+| GPIO04       | Relay 2                |
+| GPIO02       | Relay 1                |
+| GPIO15       | DHT sensor                |
+| GPIO36       | zmpt101b sensor tegangan                |
 | GPIO39       | ...                |
-| GPIO34       | ...                |
-| GPIO35       | ...                |
-| GPIO32       | ...                |
-| GPIO33       | ...                |
-| GPIO25       | ...                |
-| GPIO26       | ...                |
-| GPIO27       | ...                |
-| GPIO14       | ...                |
+| GPIO34       | acs712-20 ac dc sensor arus                |
+| GPIO35       | ky022 infrared receiver                |
+| GPIO32       | ky005 infrared transmitter                |
+| GPIO33       | Door sensor                |
+| GPIO25       | Saklar 8               |
+| GPIO26       | Saklar 7               |
+| GPIO27       | Saklar 6               |
+| GPIO14       | Saklar 5               |
 | GPIO12       | ...                |
-| GPIO13       | ...                |
+| GPIO13       | Saklar 4               |
 
 
