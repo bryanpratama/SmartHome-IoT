@@ -31,7 +31,7 @@ Berikut adalah daftar pin GPIO yang digunakan dalam proyek ini:
 
 | **Pin GPIO** | **Fungsi**         |
 |--------------|--------------------|
-| GPIO23       |                 |
+| GPIO23       | Saklar 4                |
 | GPIO22       | Saklar 3               |
 | GPIO01       | Saklar 2               |
 | GPIO03       | Saklar 1               |
@@ -47,7 +47,7 @@ Berikut adalah daftar pin GPIO yang digunakan dalam proyek ini:
 | GPIO36       | zmpt101b sensor tegangan                |
 | GPIO39       | ...                |
 | GPIO34       | acs712-20 ac dc sensor arus                |
-| GPIO35       | ky022 infrared receiver                |
+| GPIO35       |                 |
 | GPIO32       | ky005 infrared transmitter                |
 | GPIO33       | Door sensor                |
 | GPIO25       | Saklar 8               |
@@ -55,6 +55,6 @@ Berikut adalah daftar pin GPIO yang digunakan dalam proyek ini:
 | GPIO27       | Saklar 6               |
 | GPIO14       | Saklar 5               |
 | GPIO12       | ...                |
-| GPIO13       | Saklar 4               |
+| GPIO13       | ky022 infrared receiver               |
 
 
