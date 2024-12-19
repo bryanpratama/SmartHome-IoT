@@ -6,8 +6,8 @@ const char* ssid = "ESP32_AP";
 const char* password = "12345678";
 
 // Deklarasi pin
-#define RelayPin 21
-#define SwitchPin 25
+#define RelayPin 2
+#define SwitchPin 32
 
 // Variabel status
 bool relayState = false;           // Status relay (ON/OFF)
