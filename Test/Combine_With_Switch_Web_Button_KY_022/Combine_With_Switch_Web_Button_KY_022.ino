@@ -11,8 +11,8 @@ const char* ssid = "ESP32_AP";
 const char* password = "12345678";
 
 // Deklarasi pin
-#define RelayPin 21
-#define SwitchPin 25
+#define RelayPin 2
+#define SwitchPin 32
 
 // Variabel status
 bool relayState = false;           // Status relay (ON/OFF)
@@ -121,6 +121,8 @@ void handleRoot() {
     html += "<p>Status Relay: " + String(relayState ? "ON" : "OFF") + "</p>";
     html += "<button onclick=\"toggleRelay()\">Toggle Relay</button>";
     html += "<script>function toggleRelay() { fetch('/toggle').then(() => location.reload()); }</script>";
+    html += "<p><button id=\"remoteStatus\">Status Remote</button></p>";
+    html += "<script>setInterval(() => { fetch('/status').then(response => response.text()).then(data => { document.getElementById('remoteStatus').innerHTML = data; }); }, 1000);</script>";
     html += "</body></html>";
     server.send(200, "text/html", html);
 }
