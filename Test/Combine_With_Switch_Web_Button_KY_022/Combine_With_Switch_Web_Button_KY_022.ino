@@ -20,6 +20,10 @@ bool lastSwitchStates[8] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 unsigned long lastDebounceTimes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 const unsigned long debounceDelay = 50;
 
+// Variabel IR debounce
+unsigned long lastIrTime = 0;
+const unsigned long irDebounceDelay = 200;
+
 // Web server pada port 80
 WebServer server(80);
 
@@ -62,14 +66,17 @@ void loop() {
 
     // Handle IR Remote
     if (IrReceiver.decode()) {
-        if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
-            String buttonName = mapCommandToButtonName(IrReceiver.decodedIRData.command);
-            Serial.print(F("Tombol yang ditekan: "));
-            Serial.println(buttonName);
+        if ((millis() - lastIrTime) > irDebounceDelay) {
+            lastIrTime = millis();
+            if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
+                String buttonName = mapCommandToButtonName(IrReceiver.decodedIRData.command);
+                Serial.print(F("Tombol yang ditekan: "));
+                Serial.println(buttonName);
 
-            if (buttonName.toInt() >= 1 && buttonName.toInt() <= 8) {
-                int relayIndex = buttonName.toInt() - 1;
-                toggleRelay(relayIndex);
+                if (buttonName.toInt() >= 1 && buttonName.toInt() <= 8) {
+                    int relayIndex = buttonName.toInt() - 1;
+                    toggleRelay(relayIndex);
+                }
             }
         }
         IrReceiver.resume();
