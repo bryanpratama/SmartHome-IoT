@@ -11,14 +11,13 @@ const char* ssid = "ESP32_AP";
 const char* password = "12345678";
 
 // Deklarasi pin
-#define RelayPin 2
-#define SwitchPin 32
+const int switchPins[] = {35, 12, 22, 23, 21, 27, 26, 39}; // Pin untuk 8 saklar
+const int relayPins[] = {2, 4, 16, 17, 5, 18, 19, 14}; // Pin untuk 8 relay
 
 // Variabel status
-bool relayState = false;           // Status relay (ON/OFF)
-bool lastSwitchState = HIGH;       // Status terakhir switch
-bool currentSwitchState = HIGH;    // Status switch saat ini
-unsigned long lastDebounceTime = 0;
+bool relayStates[8] = {false, false, false, false, false, false, false, false}; // Status tiap relay
+bool lastSwitchStates[8] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
+unsigned long lastDebounceTimes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 const unsigned long debounceDelay = 50;
 
 // Web server pada port 80
@@ -26,30 +25,30 @@ WebServer server(80);
 
 void setup() {
     Serial.begin(115200);
-    while (!Serial); // Wait for Serial
-    
+    while (!Serial);
+
     EEPROM.begin(512); // Inisialisasi EEPROM
-    relayState = EEPROM.read(0); // Membaca status relay dari EEPROM
-    
+    for (int i = 0; i < 8; i++) {
+        relayStates[i] = EEPROM.read(i);
+        pinMode(relayPins[i], OUTPUT);
+        digitalWrite(relayPins[i], relayStates[i] ? LOW : HIGH); // Relay sesuai status terakhir
+        pinMode(switchPins[i], INPUT_PULLUP);
+    }
+
     Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
-    
+
     // Setup IR receiver
     IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
     Serial.print(F("Ready to receive IR signals of protocols: "));
     printActiveIRProtocols(&Serial);
     Serial.println(F("at pin " STR(IR_RECEIVE_PIN)));
-    
-    // Setup pin
-    pinMode(RelayPin, OUTPUT);
-    pinMode(SwitchPin, INPUT_PULLUP);
-    digitalWrite(RelayPin, relayState ? LOW : HIGH); // Relay sesuai status terakhir
-    
+
     // Setup Access Point
     WiFi.softAP(ssid, password);
     Serial.println("Access Point Started");
     Serial.print("IP Address: ");
     Serial.println(WiFi.softAPIP());
-    
+
     // Setup route untuk web server
     server.on("/", handleRoot);
     server.on("/status", handleStatus);
@@ -68,42 +67,39 @@ void loop() {
             Serial.print(F("Tombol yang ditekan: "));
             Serial.println(buttonName);
 
-            // Handle relay control with remote
-            if (buttonName == "1") {
-                toggleRelay();
-            } else if (buttonName == "2") {
-                Serial.println(F("Tombol 2 ditekan."));
-            } else if (buttonName == "3") {
-                Serial.println(F("Tombol 3 ditekan."));
+            if (buttonName.toInt() >= 1 && buttonName.toInt() <= 8) {
+                int relayIndex = buttonName.toInt() - 1;
+                toggleRelay(relayIndex);
             }
         }
         IrReceiver.resume();
     }
 
-    // Handle Switch Button
-    int reading = digitalRead(SwitchPin);
-    if (reading != lastSwitchState) {
-        lastDebounceTime = millis();
-    }
+    // Handle Switch Buttons
+    for (int i = 0; i < 8; i++) {
+        int reading = digitalRead(switchPins[i]);
+        if (reading != lastSwitchStates[i]) {
+            lastDebounceTimes[i] = millis();
+        }
 
-    if ((millis() - lastDebounceTime) > debounceDelay) {
-        if (reading != currentSwitchState) {
-            currentSwitchState = reading;
+        if ((millis() - lastDebounceTimes[i]) > debounceDelay) {
+            if (reading != lastSwitchStates[i]) {
+                lastSwitchStates[i] = reading;
 
-            if (currentSwitchState == LOW) {
-                toggleRelay();
+                if (reading == LOW) {
+                    toggleRelay(i); // Toggle relay terkait tombol
+                }
             }
         }
     }
-    lastSwitchState = reading;
 }
 
-void toggleRelay() {
-    relayState = !relayState;
-    digitalWrite(RelayPin, relayState ? LOW : HIGH);
-    EEPROM.write(0, relayState); // Menyimpan status relay ke EEPROM
+void toggleRelay(int relayIndex) {
+    relayStates[relayIndex] = !relayStates[relayIndex];
+    digitalWrite(relayPins[relayIndex], relayStates[relayIndex] ? LOW : HIGH);
+    EEPROM.write(relayIndex, relayStates[relayIndex]); // Menyimpan status relay ke EEPROM
     EEPROM.commit();
-    Serial.println("Relay: " + String(relayState ? "ON" : "OFF"));
+    Serial.println("Relay " + String(relayIndex + 1) + ": " + String(relayStates[relayIndex] ? "ON" : "OFF"));
 }
 
 String mapCommandToButtonName(uint8_t command) {
@@ -111,6 +107,11 @@ String mapCommandToButtonName(uint8_t command) {
         case 0x45: return "1";
         case 0x46: return "2";
         case 0x47: return "3";
+        case 0x44: return "4";
+        case 0x40: return "5";
+        case 0x43: return "6";
+        case 0x07: return "7";
+        case 0x15: return "8";
         default:   return "Tombol tidak dikenal";
     }
 }
@@ -118,20 +119,29 @@ String mapCommandToButtonName(uint8_t command) {
 void handleRoot() {
     String html = "<html><head><title>ESP32 Relay Control</title></head><body>";
     html += "<h1>ESP32 Relay Control</h1>";
-    html += "<p>Status Relay: " + String(relayState ? "ON" : "OFF") + "</p>";
-    html += "<button onclick=\"toggleRelay()\">Toggle Relay</button>";
-    html += "<script>function toggleRelay() { fetch('/toggle').then(() => location.reload()); }</script>";
-    html += "<p><button id=\"remoteStatus\">Status Remote</button></p>";
-    html += "<script>setInterval(() => { fetch('/status').then(response => response.text()).then(data => { document.getElementById('remoteStatus').innerHTML = data; }); }, 1000);</script>";
+    for (int i = 0; i < 8; i++) {
+        html += "<p>Relay " + String(i + 1) + ": " + String(relayStates[i] ? "ON" : "OFF") + "</p>";
+        html += "<button onclick=\"toggleRelay(" + String(i + 1) + ")\">Toggle Relay " + String(i + 1) + "</button>";
+    }
+    html += "<script>function toggleRelay(index) { fetch('/toggle?relay=' + index).then(() => location.reload()); }</script>";
     html += "</body></html>";
     server.send(200, "text/html", html);
 }
 
 void handleStatus() {
-    server.send(200, "text/plain", relayState ? "ON" : "OFF");
+    String status = "";
+    for (int i = 0; i < 8; i++) {
+        status += "Relay " + String(i + 1) + ": " + String(relayStates[i] ? "ON" : "OFF") + "\n";
+    }
+    server.send(200, "text/plain", status);
 }
 
 void handleToggle() {
-    toggleRelay();
+    if (server.hasArg("relay")) {
+        int relayIndex = server.arg("relay").toInt() - 1;
+        if (relayIndex >= 0 && relayIndex < 8) {
+            toggleRelay(relayIndex);
+        }
+    }
     server.send(200, "text/plain", "OK");
 }
