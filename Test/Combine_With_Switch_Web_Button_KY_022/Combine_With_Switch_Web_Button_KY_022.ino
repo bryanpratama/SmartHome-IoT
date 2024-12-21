@@ -22,7 +22,7 @@ const unsigned long debounceDelay = 50;
 
 // Variabel IR debounce
 unsigned long lastIrTime = 0;
-const unsigned long irDebounceDelay = 200;
+const unsigned long irDebounceDelay = 1000;
 
 // Web server pada port 80
 WebServer server(80);
