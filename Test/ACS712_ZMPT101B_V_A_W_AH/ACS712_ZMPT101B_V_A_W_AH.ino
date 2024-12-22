@@ -16,9 +16,10 @@ float offsetArus = 0;
 const int sampleCount = 10; // Jumlah sampel untuk rata-rata
 int delayPerSample = 100;   // Delay antar pembacaan (ms)
 
-// Variabel untuk AH
-float totalAmpereHour = 0.0;
-unsigned long lastUpdateMillis = 0; // Untuk menghitung waktu yang berlalu
+// Variabel untuk energi dan biaya
+float totalEnergyKWh = 0.0; // Total energi dalam kWh
+const float tarifPerKWh = 1352.0; // Tarif listrik (Rp/kWh)
+unsigned long lastUpdateMillis = 0;
 
 // Fungsi kalibrasi offset tegangan
 float kalibrasiTegangan() {
@@ -72,37 +73,48 @@ void setup() {
   pinMode(PIN_ARUS, INPUT);
 
   Serial.println("Kalibrasi offset dimulai...");
-  
+
   // Kalibrasi ulang beberapa kali untuk stabilitas
   for (int i = 0; i < 3; i++) {
     offsetTegangan = kalibrasiTegangan();
     offsetArus = kalibrasiArus();
     delay(1000); // Tunggu sebelum pengambilan ulang
   }
-  
+
   Serial.println("Kalibrasi selesai!");
   Serial.print("Offset Tegangan: ");
   Serial.println(offsetTegangan);
   Serial.print("Offset Arus: ");
   Serial.println(offsetArus);
 
-  lastUpdateMillis = millis(); // Set waktu awal
+  lastUpdateMillis = millis();
 }
 
 void loop() {
   float teganganAC = bacaTegangan();
   float arusAC = bacaArus();
 
-  // Perhitungan daya aktif (Watt)
+  // Hitung daya aktif (Watt)
   float dayaAC = teganganAC * arusAC;
 
-  // Perhitungan Ampere-Hour (AH)
-  unsigned long currentMillis = millis();
-  float elapsedHours = (currentMillis - lastUpdateMillis) / 3600000.0; // Konversi ms ke jam
-  totalAmpereHour += arusAC * elapsedHours;
-  lastUpdateMillis = currentMillis; // Reset waktu terakhir
+  // Hitung daya semu (VA)
+  float dayaSemu = teganganAC * arusAC;
 
-  // Output ke Serial Monitor
+  // Hitung waktu berlalu dalam jam
+  unsigned long currentMillis = millis();
+  float elapsedHours = (currentMillis - lastUpdateMillis) / 3600000.0;
+  lastUpdateMillis = currentMillis;
+
+  // Tambahkan energi ke total (kWh)
+  totalEnergyKWh += (dayaAC * elapsedHours) / 1000.0;
+
+  // Hitung biaya energi (Rp)
+  float biayaSaatIni = totalEnergyKWh * tarifPerKWh;
+
+  // Perkiraan biaya per bulan (30 hari)
+  float biayaPerBulan = biayaSaatIni * 30 / elapsedHours;
+
+  // Tampilkan hasil ke Serial Monitor
   Serial.println("--------------------------");
   Serial.print("Tegangan AC: ");
   Serial.print(teganganAC);
@@ -110,12 +122,21 @@ void loop() {
   Serial.print("Arus AC: ");
   Serial.print(arusAC);
   Serial.println(" A");
-  Serial.print("Daya AC: ");
+  Serial.print("Daya Aktif: ");
   Serial.print(dayaAC);
   Serial.println(" W");
-  Serial.print("Kapasitas Energi: ");
-  Serial.print(totalAmpereHour);
-  Serial.println(" AH");
+  Serial.print("Daya Semu: ");
+  Serial.print(dayaSemu);
+  Serial.println(" VA");
+  Serial.print("Energi Total: ");
+  Serial.print(totalEnergyKWh);
+  Serial.println(" kWh");
+  Serial.print("Biaya Energi Saat Ini: Rp ");
+  Serial.print(biayaSaatIni);
+  Serial.println();
+  Serial.print("Perkiraan Biaya Bulanan: Rp ");
+  Serial.print(biayaPerBulan);
+  Serial.println();
   Serial.println("--------------------------");
 
   delay(1000); // Delay antar tampilan hasil
