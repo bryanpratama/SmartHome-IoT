@@ -11,18 +11,18 @@ const char* ssid = "ESP32_AP";
 const char* password = "12345678";
 
 // Deklarasi pin
-const int switchPins[] = {35, 12, 22, 23, 21, 27, 26, 39}; // Pin untuk 8 saklar
-const int relayPins[] = {2, 4, 16, 17, 5, 18, 19, 14}; // Pin untuk 8 relay
+const int switchPins[] = {1, 21, 22, 23}; // Pin untuk 4 saklar
+const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14}; // Pin untuk 8 relay
 
 // Variabel status
 bool relayStates[8] = {false, false, false, false, false, false, false, false}; // Status tiap relay
-bool lastSwitchStates[8] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
-unsigned long lastDebounceTimes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+bool lastSwitchStates[4] = {HIGH, HIGH, HIGH, HIGH};
+unsigned long lastDebounceTimes[4] = {0, 0, 0, 0};
 const unsigned long debounceDelay = 50;
 
 // Variabel IR debounce
 unsigned long lastIrTime = 0;
-const unsigned long irDebounceDelay = 1000;
+const unsigned long irDebounceDelay = 300;
 
 // Web server pada port 80
 WebServer server(80);
@@ -36,6 +36,9 @@ void setup() {
         relayStates[i] = EEPROM.read(i);
         pinMode(relayPins[i], OUTPUT);
         digitalWrite(relayPins[i], relayStates[i] ? LOW : HIGH); // Relay sesuai status terakhir
+    }
+
+    for (int i = 0; i < 4; i++) {
         pinMode(switchPins[i], INPUT_PULLUP);
     }
 
@@ -83,7 +86,7 @@ void loop() {
     }
 
     // Handle Switch Buttons
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 4; i++) {
         int reading = digitalRead(switchPins[i]);
         if (reading != lastSwitchStates[i]) {
             lastDebounceTimes[i] = millis();

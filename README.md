@@ -29,41 +29,30 @@ Berikut adalah gambaran umum arsitektur sistem:
 ## **Tabel GPIO**
 Berikut adalah daftar pin GPIO yang digunakan dalam proyek ini:
 
-| **Pin GPIO** | **Fungsi**                         |
-|--------------|------------------------------------|
-| GPIO23       | Saklar 4                          |
-| GPIO22       | Saklar 3                          |
-| GPIO21       | Saklar 2                          |
-| GPIO19       | Relay 7                           |
-| GPIO18       | Relay 6                           |
-| GPIO5        | Relay 5                           |
-| GPIO17       | Relay 4                           |
-| GPIO16       | Relay 3                           |
-| GPIO15       | DHT sensor                        |
-| GPIO36       | zmpt101b sensor tegangan          |
-| GPIO34       | acs712-20 ac dc sensor arus       |
-| GPIO35       | Tidak digunakan                   |
-| GPIO32       | ky005 infrared transmitter        |
-| GPIO33       | Door sensor                       |
-| GPIO13       | ky022 infrared receiver           |
-| GPIO14       | Relay 8                           |
-| GPIO12       | Tidak digunakan                   |
-| GPIO25       | Tidak digunakan                   |
-| GPIO26       | Tidak digunakan                   |
-| GPIO27       | Tidak digunakan                   |
-
-### **GPIO Tidak Digunakan**
-| **Pin GPIO**          |
-|-----------------------|
-| GPIO0 (Boot pin)      |
-| GPIO2 (Boot pin)      |
-| GPIO4 (Boot pin)      |
-| GPIO6–11 (Flash pins) |
-| GPIO39                |
-| GPIO35                |
-| GPIO12                |
-| GPIO25                |
-| GPIO26                |
-| GPIO27                |
-
-
+| **Pin GPIO** | **Fungsi**                     |
+|--------------|--------------------------------|
+| GPIO23       | Saklar 4                      |
+| GPIO22       | Saklar 3                      |
+| GPIO1        | Saklar 1                      |
+| GPIO3        | Tidak digunakan               |
+| GPIO21       | Saklar 2                      |
+| GPIO19       | Relay 7                       |
+| GPIO18       | Relay 6                       |
+| GPIO5        | Relay 5                       |
+| GPIO17       | Relay 4                       |
+| GPIO16       | Relay 3                       |
+| GPIO4        | Boot pin                      |
+| GPIO2        | Boot pin                      |
+| GPIO15       | DHT22                         |
+| GPIO36       | zmpt101b sensor tegangan      |
+| GPIO39       | Tidak digunakan               |
+| GPIO34       | acs712-20 ac dc sensor arus   |
+| GPIO35       | Tidak digunakan               |
+| GPIO32       | ky005 infrared transmitter    |
+| GPIO33       | MC38 Magnetic Switch          |
+| GPIO25       | Tidak digunakan               |
+| GPIO26       | Relay 1                       |
+| GPIO27       | Relay 2                       |
+| GPIO14       | Relay 8                       |
+| GPIO12       | Boot pin                      |
+| GPIO13       | ky022 infrared receiver       |
