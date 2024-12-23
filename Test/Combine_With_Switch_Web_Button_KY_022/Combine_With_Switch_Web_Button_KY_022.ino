@@ -24,6 +24,12 @@ const unsigned long debounceDelay = 50;
 unsigned long lastIrTime = 0;
 const unsigned long irDebounceDelay = 300;
 
+// Variabel untuk fitur relay 2 (nyala 2 menit, mati 5 menit)
+bool relay2FeatureActive = false;
+unsigned long relay2StartTime = 0;
+const unsigned long relay2OnTime = 2 * 60 * 1000; // 2 menit
+const unsigned long relay2OffTime = 5 * 60 * 1000; // 5 menit
+
 // Web server pada port 80
 WebServer server(80);
 
@@ -60,6 +66,7 @@ void setup() {
     server.on("/", handleRoot);
     server.on("/status", handleStatus);
     server.on("/toggle", handleToggle);
+    server.on("/relay2Feature", handleRelay2Feature);
     server.begin();
     Serial.println("Web server started");
 }
@@ -72,13 +79,16 @@ void loop() {
         if ((millis() - lastIrTime) > irDebounceDelay) {
             lastIrTime = millis();
             if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
-                String buttonName = mapCommandToButtonName(IrReceiver.decodedIRData.command);
+                uint8_t command = IrReceiver.decodedIRData.command;
+                String buttonName = mapCommandToButtonName(command);
                 Serial.print(F("Tombol yang ditekan: "));
                 Serial.println(buttonName);
 
                 if (buttonName.toInt() >= 1 && buttonName.toInt() <= 8) {
                     int relayIndex = buttonName.toInt() - 1;
                     toggleRelay(relayIndex);
+                } else if (command == 0x0D) { // ID IR untuk fitur relay 2
+                    toggleRelay2Feature();
                 }
             }
         }
@@ -102,6 +112,20 @@ void loop() {
             }
         }
     }
+
+    // Handle fitur relay 2 (2 menit nyala, 5 menit mati)
+    if (relay2FeatureActive) {
+        unsigned long elapsedTime = millis() - relay2StartTime;
+        if (relayStates[1] && elapsedTime >= relay2OnTime) {
+            digitalWrite(relayPins[1], HIGH);
+            relayStates[1] = false;
+            relay2StartTime = millis();
+        } else if (!relayStates[1] && elapsedTime >= relay2OffTime) {
+            digitalWrite(relayPins[1], LOW);
+            relayStates[1] = true;
+            relay2StartTime = millis();
+        }
+    }
 }
 
 void toggleRelay(int relayIndex) {
@@ -110,6 +134,20 @@ void toggleRelay(int relayIndex) {
     EEPROM.write(relayIndex, relayStates[relayIndex]); // Menyimpan status relay ke EEPROM
     EEPROM.commit();
     Serial.println("Relay " + String(relayIndex + 1) + ": " + String(relayStates[relayIndex] ? "ON" : "OFF"));
+}
+
+void toggleRelay2Feature() {
+    relay2FeatureActive = !relay2FeatureActive;
+    if (relay2FeatureActive) {
+        relay2StartTime = millis();
+        digitalWrite(relayPins[1], LOW);
+        relayStates[1] = true;
+        Serial.println("Fitur Relay 2: Aktif");
+    } else {
+        digitalWrite(relayPins[1], HIGH);
+        relayStates[1] = false;
+        Serial.println("Fitur Relay 2: Nonaktif");
+    }
 }
 
 String mapCommandToButtonName(uint8_t command) {
@@ -133,7 +171,9 @@ void handleRoot() {
         html += "<p>Relay " + String(i + 1) + ": " + String(relayStates[i] ? "ON" : "OFF") + "</p>";
         html += "<button onclick=\"toggleRelay(" + String(i + 1) + ")\">Toggle Relay " + String(i + 1) + "</button>";
     }
-    html += "<script>function toggleRelay(index) { fetch('/toggle?relay=' + index).then(() => location.reload()); }</script>";
+    html += "<button onclick=\"toggleRelay2Feature()\">Toggle Relay 2 Feature</button>";
+    html += "<script>function toggleRelay(index) { fetch('/toggle?relay=' + index).then(() => location.reload()); }";
+    html += "function toggleRelay2Feature() { fetch('/relay2Feature').then(() => location.reload()); }</script>";
     html += "</body></html>";
     server.send(200, "text/html", html);
 }
@@ -153,5 +193,10 @@ void handleToggle() {
             toggleRelay(relayIndex);
         }
     }
+    server.send(200, "text/plain", "OK");
+}
+
+void handleRelay2Feature() {
+    toggleRelay2Feature();
     server.send(200, "text/plain", "OK");
 }
