@@ -6,48 +6,40 @@
 #include "PinDefinitionsAndMore.h"
 #include <IRremote.hpp>
 
-// Konfigurasi Access Point
 const char* ssid = "ESP32_AP";
 const char* password = "12345678";
 
-// Deklarasi pin
-const int switchPins[] = {1, 21, 22, 23}; // Pin untuk 4 saklar
-const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14}; // Pin untuk 8 relay
-const int magneticDoorSwitchPin = 33; // Pin untuk MC-38 Magnetic Door Switch
+const int switchPins[] = {1, 21, 22, 23};
+const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14};
+const int magneticDoorSwitchPin = 33;
 
-// Variabel status
-bool relayStates[8] = {true, true, true, true, true, true, true, true}; // Status tiap relay
+bool relayStates[8] = {true, true, true, true, true, true, true, true};
 bool lastSwitchStates[4] = {HIGH, HIGH, HIGH, HIGH};
 unsigned long lastDebounceTimes[4] = {0, 0, 0, 0};
 const unsigned long debounceDelay = 50;
 
-// Variabel IR debounce
 unsigned long lastIrTime = 0;
 const unsigned long irDebounceDelay = 300;
 
-// Variabel untuk fitur relay 2 (nyala 2 menit, mati 5 menit)
 bool relay2FeatureActive = false;
 unsigned long relay2StartTime = 0;
-const unsigned long relay2OnTime = 2 * 60 * 1000; // 2 menit
-const unsigned long relay2OffTime = 5 * 60 * 1000; // 5 menit
+const unsigned long relay2OnTime = 2 * 60 * 1000;
+const unsigned long relay2OffTime = 5 * 60 * 1000;
 
-// Variabel untuk fitur MC-38 Magnetic Door Switch
 unsigned long relay3StartTime = 0;
-const unsigned long relay3ActiveDuration = 10 * 1000; // 10 detik
+const unsigned long relay3ActiveDuration = 10 * 1000;
 bool relay3Active = false;
 
-// Web server pada port 80
 WebServer server(80);
 
 void setup() {
     Serial.begin(115200);
     while (!Serial);
 
-    EEPROM.begin(512); // Inisialisasi EEPROM
+    EEPROM.begin(512);
     for (int i = 0; i < 8; i++) {
         relayStates[i] = EEPROM.read(i);
         pinMode(relayPins[i], OUTPUT);
-        //digitalWrite(relayPins[i], relayStates[i] ? LOW : HIGH); // Relay sesuai status terakhir
         digitalWrite(relayPins[i], HIGH);
     }
 
@@ -55,23 +47,20 @@ void setup() {
         pinMode(switchPins[i], INPUT_PULLUP);
     }
 
-    pinMode(magneticDoorSwitchPin, INPUT_PULLUP); // Konfigurasi pin MC-38 Magnetic Door Switch
+    pinMode(magneticDoorSwitchPin, INPUT_PULLUP);
 
     Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
 
-    // Setup IR receiver
     IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
     Serial.print(F("Ready to receive IR signals of protocols: "));
     printActiveIRProtocols(&Serial);
     Serial.println(F("at pin " STR(IR_RECEIVE_PIN)));
 
-    // Setup Access Point
     WiFi.softAP(ssid, password);
     Serial.println("Access Point Started");
     Serial.print("IP Address: ");
     Serial.println(WiFi.softAPIP());
 
-    // Setup route untuk web server
     server.on("/", handleRoot);
     server.on("/status", handleStatus);
     server.on("/toggle", handleToggle);
@@ -83,7 +72,6 @@ void setup() {
 void loop() {
     server.handleClient();
 
-    // Handle IR Remote
     if (IrReceiver.decode()) {
         if ((millis() - lastIrTime) > irDebounceDelay) {
             lastIrTime = millis();
@@ -96,7 +84,7 @@ void loop() {
                 if (buttonName.toInt() >= 1 && buttonName.toInt() <= 8) {
                     int relayIndex = buttonName.toInt() - 1;
                     toggleRelay(relayIndex);
-                } else if (command == 0x0D) { // ID IR untuk fitur relay 2
+                } else if (command == 0x0D) {
                     toggleRelay2Feature();
                 }
             }
@@ -104,7 +92,6 @@ void loop() {
         IrReceiver.resume();
     }
 
-    // Handle Switch Buttons
     for (int i = 0; i < 4; i++) {
         int reading = digitalRead(switchPins[i]);
         if (reading != lastSwitchStates[i]) {
@@ -116,13 +103,12 @@ void loop() {
                 lastSwitchStates[i] = reading;
 
                 if (reading == LOW) {
-                    toggleRelay(i); // Toggle relay terkait tombol
+                    toggleRelay(i);
                 }
             }
         }
     }
 
-    // Handle fitur relay 2 (2 menit nyala, 5 menit mati)
     if (relay2FeatureActive) {
         unsigned long elapsedTime = millis() - relay2StartTime;
         if (relayStates[1] && elapsedTime >= relay2OnTime) {
@@ -136,24 +122,23 @@ void loop() {
         }
     }
 
-    // Handle fitur MC-38 Magnetic Door Switch
     int doorState = digitalRead(magneticDoorSwitchPin);
-    if (doorState == HIGH && !relay3Active) { // Pintu terbuka
+    if (doorState == HIGH && !relay3Active) {
         relay3Active = true;
         relay3StartTime = millis();
-        digitalWrite(relayPins[2], LOW); // Aktifkan relay 3
+        digitalWrite(relayPins[2], LOW);
     }
 
     if (relay3Active && (millis() - relay3StartTime >= relay3ActiveDuration)) {
         relay3Active = false;
-        digitalWrite(relayPins[2], HIGH); // Matikan relay 3
+        digitalWrite(relayPins[2], HIGH);
     }
 }
 
 void toggleRelay(int relayIndex) {
     relayStates[relayIndex] = !relayStates[relayIndex];
     digitalWrite(relayPins[relayIndex], relayStates[relayIndex] ? LOW : HIGH);
-    EEPROM.write(relayIndex, relayStates[relayIndex]); // Menyimpan status relay ke EEPROM
+    EEPROM.write(relayIndex, relayStates[relayIndex]);
     EEPROM.commit();
     Serial.println("Relay " + String(relayIndex + 1) + ": " + String(relayStates[relayIndex] ? "ON" : "OFF"));
 }
