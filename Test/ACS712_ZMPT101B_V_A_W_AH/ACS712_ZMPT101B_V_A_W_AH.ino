@@ -21,52 +21,6 @@ float totalEnergyKWh = 0.0; // Total energi dalam kWh
 const float tarifPerKWh = 1352.0; // Tarif listrik (Rp/kWh)
 unsigned long lastUpdateMillis = 0;
 
-// Fungsi kalibrasi offset tegangan
-float kalibrasiTegangan() {
-  float total = 0;
-  for (int i = 0; i < sampleCount; i++) {
-    int adcValue = analogRead(PIN_TEGANGAN);
-    total += adcValue;
-    delay(delayPerSample);
-  }
-  return total / sampleCount; // Nilai rata-rata ADC
-}
-
-// Fungsi kalibrasi offset arus
-float kalibrasiArus() {
-  float total = 0;
-  for (int i = 0; i < sampleCount; i++) {
-    int adcValue = analogRead(PIN_ARUS);
-    total += adcValue;
-    delay(delayPerSample);
-  }
-  return total / sampleCount; // Nilai rata-rata ADC
-}
-
-// Fungsi pembacaan tegangan AC
-float bacaTegangan() {
-  float total = 0;
-  for (int i = 0; i < sampleCount; i++) {
-    int adcValue = analogRead(PIN_TEGANGAN);
-    float tegangan = ((adcValue - offsetTegangan) / 4095.0) * 3.3 * teganganKalibrasi;
-    total += tegangan > 0 ? tegangan : 0; // Pastikan nilai positif
-    delay(delayPerSample);
-  }
-  return total / sampleCount;
-}
-
-// Fungsi pembacaan arus AC
-float bacaArus() {
-  float total = 0;
-  for (int i = 0; i < sampleCount; i++) {
-    int adcValue = analogRead(PIN_ARUS);
-    float arus = ((adcValue - offsetArus) / 4095.0) * 3.3 * arusKalibrasi;
-    total += arus > 0 ? arus : 0; // Pastikan nilai positif
-    delay(delayPerSample);
-  }
-  return total / sampleCount;
-}
-
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_TEGANGAN, INPUT);
@@ -76,8 +30,8 @@ void setup() {
 
   // Kalibrasi ulang beberapa kali untuk stabilitas
   for (int i = 0; i < 3; i++) {
-    offsetTegangan = kalibrasiTegangan();
-    offsetArus = kalibrasiArus();
+    offsetTegangan = kalibrasiOffset(PIN_TEGANGAN);
+    offsetArus = kalibrasiOffset(PIN_ARUS);
     delay(1000); // Tunggu sebelum pengambilan ulang
   }
 
@@ -91,14 +45,11 @@ void setup() {
 }
 
 void loop() {
-  float teganganAC = bacaTegangan();
-  float arusAC = bacaArus();
+  float teganganAC = bacaNilai(PIN_TEGANGAN, offsetTegangan, teganganKalibrasi);
+  float arusAC = bacaNilai(PIN_ARUS, offsetArus, arusKalibrasi);
 
   // Hitung daya aktif (Watt)
   float dayaAC = teganganAC * arusAC;
-
-  // Hitung daya semu (VA)
-  float dayaSemu = teganganAC * arusAC;
 
   // Hitung waktu berlalu dalam jam
   unsigned long currentMillis = millis();
@@ -111,8 +62,8 @@ void loop() {
   // Hitung biaya energi (Rp)
   float biayaSaatIni = totalEnergyKWh * tarifPerKWh;
 
-  // Perkiraan biaya per bulan (30 hari)
-  float biayaPerBulan = biayaSaatIni * 30 / elapsedHours;
+  // Hitung biaya berdasarkan konsumsi daya saat ini
+  float estimasiBiayaBulanan = (dayaAC / 1000.0) * tarifPerKWh * 24 * 30; // 24 jam x 30 hari
 
   // Tampilkan hasil ke Serial Monitor
   Serial.println("--------------------------");
@@ -125,19 +76,36 @@ void loop() {
   Serial.print("Daya Aktif: ");
   Serial.print(dayaAC);
   Serial.println(" W");
-  Serial.print("Daya Semu: ");
-  Serial.print(dayaSemu);
-  Serial.println(" VA");
   Serial.print("Energi Total: ");
   Serial.print(totalEnergyKWh);
   Serial.println(" kWh");
   Serial.print("Biaya Energi Saat Ini: Rp ");
   Serial.print(biayaSaatIni);
   Serial.println();
-  Serial.print("Perkiraan Biaya Bulanan: Rp ");
-  Serial.print(biayaPerBulan);
+  Serial.print("Estimasi Biaya Bulanan Berdasarkan Konsumsi Saat Ini: Rp ");
+  Serial.print(estimasiBiayaBulanan);
   Serial.println();
   Serial.println("--------------------------");
 
   delay(1000); // Delay antar tampilan hasil
+}
+
+float kalibrasiOffset(int pin) {
+  float total = 0;
+  for (int i = 0; i < sampleCount; i++) {
+    total += analogRead(pin);
+    delay(delayPerSample);
+  }
+  return total / sampleCount; // Nilai rata-rata ADC
+}
+
+float bacaNilai(int pin, float offset, float kalibrasi) {
+  float total = 0;
+  for (int i = 0; i < sampleCount; i++) {
+    int adcValue = analogRead(pin);
+    float nilai = ((adcValue - offset) / 4095.0) * 3.3 * kalibrasi;
+    total += nilai > 0 ? nilai : 0; // Pastikan nilai positif
+    delay(delayPerSample);
+  }
+  return total / sampleCount;
 }
