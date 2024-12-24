@@ -13,9 +13,10 @@ const char* password = "12345678";
 // Deklarasi pin
 const int switchPins[] = {1, 21, 22, 23}; // Pin untuk 4 saklar
 const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14}; // Pin untuk 8 relay
+const int magneticDoorSwitchPin = 33; // Pin untuk MC-38 Magnetic Door Switch
 
 // Variabel status
-bool relayStates[8] = {false, false, false, false, false, false, false, false}; // Status tiap relay
+bool relayStates[8] = {true, true, true, true, true, true, true, true}; // Status tiap relay
 bool lastSwitchStates[4] = {HIGH, HIGH, HIGH, HIGH};
 unsigned long lastDebounceTimes[4] = {0, 0, 0, 0};
 const unsigned long debounceDelay = 50;
@@ -30,6 +31,11 @@ unsigned long relay2StartTime = 0;
 const unsigned long relay2OnTime = 2 * 60 * 1000; // 2 menit
 const unsigned long relay2OffTime = 5 * 60 * 1000; // 5 menit
 
+// Variabel untuk fitur MC-38 Magnetic Door Switch
+unsigned long relay3StartTime = 0;
+const unsigned long relay3ActiveDuration = 10 * 1000; // 10 detik
+bool relay3Active = false;
+
 // Web server pada port 80
 WebServer server(80);
 
@@ -41,12 +47,15 @@ void setup() {
     for (int i = 0; i < 8; i++) {
         relayStates[i] = EEPROM.read(i);
         pinMode(relayPins[i], OUTPUT);
-        digitalWrite(relayPins[i], relayStates[i] ? LOW : HIGH); // Relay sesuai status terakhir
+        //digitalWrite(relayPins[i], relayStates[i] ? LOW : HIGH); // Relay sesuai status terakhir
+        digitalWrite(relayPins[i], HIGH);
     }
 
     for (int i = 0; i < 4; i++) {
         pinMode(switchPins[i], INPUT_PULLUP);
     }
+
+    pinMode(magneticDoorSwitchPin, INPUT_PULLUP); // Konfigurasi pin MC-38 Magnetic Door Switch
 
     Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
 
@@ -125,6 +134,19 @@ void loop() {
             relayStates[1] = true;
             relay2StartTime = millis();
         }
+    }
+
+    // Handle fitur MC-38 Magnetic Door Switch
+    int doorState = digitalRead(magneticDoorSwitchPin);
+    if (doorState == HIGH && !relay3Active) { // Pintu terbuka
+        relay3Active = true;
+        relay3StartTime = millis();
+        digitalWrite(relayPins[2], LOW); // Aktifkan relay 3
+    }
+
+    if (relay3Active && (millis() - relay3StartTime >= relay3ActiveDuration)) {
+        relay3Active = false;
+        digitalWrite(relayPins[2], HIGH); // Matikan relay 3
     }
 }
 
