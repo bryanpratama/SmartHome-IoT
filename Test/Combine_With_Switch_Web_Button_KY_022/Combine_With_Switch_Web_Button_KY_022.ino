@@ -167,6 +167,16 @@ String mapCommandToButtonName(uint8_t command) {
 }
 
 void handleRoot() {
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.println(" °C");
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.println(" %");
+
     String html = "<html><head><title>ESP32 Relay Control</title></head><body>";
     html += "<h1>ESP32 Relay Control</h1>";
     for (int i = 0; i < 8; i++) {
@@ -174,7 +184,14 @@ void handleRoot() {
         html += "<button onclick=\"toggleRelay(" + String(i + 1) + ")\">Toggle Relay " + String(i + 1) + "</button>";
     }
     html += "<button onclick=\"toggleRelay2Feature()\">Toggle Relay 2 Feature</button>";
-    html += "<p><a href=\"/dht\">Check DHT22 Data</a></p>";
+
+    if (!isnan(temperature) && !isnan(humidity)) {
+        html += "<p>Temperature: " + String(temperature) + " °C</p>";
+        html += "<p>Humidity: " + String(humidity) + " %</p>";
+    } else {
+        html += "<p>Failed to read from DHT sensor!</p>";
+    }
+
     html += "<script>function toggleRelay(index) { fetch('/toggle?relay=' + index).then(() => location.reload()); }";
     html += "function toggleRelay2Feature() { fetch('/relay2Feature').then(() => location.reload()); }</script>";
     html += "</body></html>";
