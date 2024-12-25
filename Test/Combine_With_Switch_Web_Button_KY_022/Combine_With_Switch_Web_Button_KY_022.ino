@@ -5,6 +5,7 @@
 #define DECODE_NEC 
 #include "PinDefinitionsAndMore.h"
 #include <IRremote.hpp>
+#include <DHT.h>
 
 const char* ssid = "ESP32_AP";
 const char* password = "12345678";
@@ -12,6 +13,10 @@ const char* password = "12345678";
 const int switchPins[] = {1, 21, 22, 23};
 const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14};
 const int magneticDoorSwitchPin = 33;
+
+#define DHTPIN 32
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
 
 bool relayStates[8] = {true, true, true, true, true, true, true, true};
 bool lastSwitchStates[4] = {HIGH, HIGH, HIGH, HIGH};
@@ -49,24 +54,20 @@ void setup() {
 
     pinMode(magneticDoorSwitchPin, INPUT_PULLUP);
 
-    Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
-
     IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
-    Serial.print(F("Ready to receive IR signals of protocols: "));
     printActiveIRProtocols(&Serial);
-    Serial.println(F("at pin " STR(IR_RECEIVE_PIN)));
 
     WiFi.softAP(ssid, password);
-    Serial.println("Access Point Started");
-    Serial.print("IP Address: ");
     Serial.println(WiFi.softAPIP());
+
+    dht.begin();
 
     server.on("/", handleRoot);
     server.on("/status", handleStatus);
     server.on("/toggle", handleToggle);
     server.on("/relay2Feature", handleRelay2Feature);
+    server.on("/dht", handleDHT);
     server.begin();
-    Serial.println("Web server started");
 }
 
 void loop() {
@@ -78,9 +79,6 @@ void loop() {
             if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
                 uint8_t command = IrReceiver.decodedIRData.command;
                 String buttonName = mapCommandToButtonName(command);
-                Serial.print(F("Tombol yang ditekan: "));
-                Serial.println(buttonName);
-
                 if (buttonName.toInt() >= 1 && buttonName.toInt() <= 8) {
                     int relayIndex = buttonName.toInt() - 1;
                     toggleRelay(relayIndex);
@@ -140,7 +138,6 @@ void toggleRelay(int relayIndex) {
     digitalWrite(relayPins[relayIndex], relayStates[relayIndex] ? LOW : HIGH);
     EEPROM.write(relayIndex, relayStates[relayIndex]);
     EEPROM.commit();
-    Serial.println("Relay " + String(relayIndex + 1) + ": " + String(relayStates[relayIndex] ? "ON" : "OFF"));
 }
 
 void toggleRelay2Feature() {
@@ -149,11 +146,9 @@ void toggleRelay2Feature() {
         relay2StartTime = millis();
         digitalWrite(relayPins[1], LOW);
         relayStates[1] = true;
-        Serial.println("Fitur Relay 2: Aktif");
     } else {
         digitalWrite(relayPins[1], HIGH);
         relayStates[1] = false;
-        Serial.println("Fitur Relay 2: Nonaktif");
     }
 }
 
@@ -179,6 +174,7 @@ void handleRoot() {
         html += "<button onclick=\"toggleRelay(" + String(i + 1) + ")\">Toggle Relay " + String(i + 1) + "</button>";
     }
     html += "<button onclick=\"toggleRelay2Feature()\">Toggle Relay 2 Feature</button>";
+    html += "<p><a href=\"/dht\">Check DHT22 Data</a></p>";
     html += "<script>function toggleRelay(index) { fetch('/toggle?relay=' + index).then(() => location.reload()); }";
     html += "function toggleRelay2Feature() { fetch('/relay2Feature').then(() => location.reload()); }</script>";
     html += "</body></html>";
@@ -206,4 +202,18 @@ void handleToggle() {
 void handleRelay2Feature() {
     toggleRelay2Feature();
     server.send(200, "text/plain", "OK");
+}
+
+void handleDHT() {
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+
+    if (isnan(temperature) || isnan(humidity)) {
+        server.send(200, "text/plain", "Failed to read from DHT sensor!");
+        return;
+    }
+
+    String response = "Temperature: " + String(temperature) + "°C\n";
+    response += "Humidity: " + String(humidity) + "%";
+    server.send(200, "text/plain", response);
 }
