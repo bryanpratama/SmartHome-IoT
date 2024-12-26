@@ -14,7 +14,7 @@ const int switchPins[] = {1, 21, 22, 23};
 const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14};
 const int magneticDoorSwitchPin = 33;
 
-#define DHTPIN 32
+#define DHTPIN 15
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -177,23 +177,60 @@ void handleRoot() {
     Serial.print(humidity);
     Serial.println(" %");
 
-    String html = "<html><head><title>ESP32 Relay Control</title></head><body>";
+    String html = "<html><head>";
+    html += "<title>ESP32 Relay Control</title>";
+    html += "<script>";
+    // Function to update DHT readings
+    html += "function updateDHT() {";
+    html += "  fetch('/dht')";
+    html += "    .then(response => response.text())";
+    html += "    .then(data => {";
+    html += "      const [temp, hum] = data.split('\\n');";
+    html += "      document.getElementById('temperature').innerHTML = temp;";
+    html += "      document.getElementById('humidity').innerHTML = hum;";
+    html += "    });";
+    html += "}";
+    // Update relay status
+    html += "function updateRelayStatus() {";
+    html += "  fetch('/status')";
+    html += "    .then(response => response.text())";
+    html += "    .then(data => {";
+    html += "      const statusDiv = document.getElementById('relayStatus');";
+    html += "      statusDiv.innerHTML = data.replace(/\\n/g, '<br>');";
+    html += "    });";
+    html += "}";
+    // Toggle relay function
+    html += "function toggleRelay(index) {";
+    html += "  fetch('/toggle?relay=' + index)";
+    html += "    .then(() => updateRelayStatus());";
+    html += "}";
+    // Toggle relay2 feature function
+    html += "function toggleRelay2Feature() {";
+    html += "  fetch('/relay2Feature')";
+    html += "    .then(() => updateRelayStatus());";
+    html += "}";
+    // Set intervals for auto-update
+    html += "setInterval(updateDHT, 2000);"; // Update every 2 seconds
+    html += "setInterval(updateRelayStatus, 2000);";
+    html += "</script></head><body>";
+    
     html += "<h1>ESP32 Relay Control</h1>";
+    html += "<div id='relayStatus'>";
     for (int i = 0; i < 8; i++) {
-        html += "<p>Relay " + String(i + 1) + ": " + String(relayStates[i] ? "ON" : "OFF") + "</p>";
+        html += "Relay " + String(i + 1) + ": " + String(relayStates[i] ? "ON" : "OFF") + "<br>";
+    }
+    html += "</div>";
+    
+    for (int i = 0; i < 8; i++) {
         html += "<button onclick=\"toggleRelay(" + String(i + 1) + ")\">Toggle Relay " + String(i + 1) + "</button>";
     }
     html += "<button onclick=\"toggleRelay2Feature()\">Toggle Relay 2 Feature</button>";
 
-    if (!isnan(temperature) && !isnan(humidity)) {
-        html += "<p>Temperature: " + String(temperature) + " °C</p>";
-        html += "<p>Humidity: " + String(humidity) + " %</p>";
-    } else {
-        html += "<p>Failed to read from DHT sensor!</p>";
-    }
+    html += "<div id='dhtReadings'>";
+    html += "<p id='temperature'>Temperature: " + String(temperature) + " °C</p>";
+    html += "<p id='humidity'>Humidity: " + String(humidity) + " %</p>";
+    html += "</div>";
 
-    html += "<script>function toggleRelay(index) { fetch('/toggle?relay=' + index).then(() => location.reload()); }";
-    html += "function toggleRelay2Feature() { fetch('/relay2Feature').then(() => location.reload()); }</script>";
     html += "</body></html>";
     server.send(200, "text/html", html);
 }
