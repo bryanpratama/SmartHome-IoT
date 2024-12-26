@@ -7,40 +7,84 @@
 #include <IRremote.hpp>
 #include <DHT.h>
 
+// WiFi settings
 const char* ssid = "ESP32_AP";
 const char* password = "12345678";
 
+// Pin definitions
 const int switchPins[] = {1, 21, 22, 23};
 const int relayPins[] = {26, 27, 16, 17, 5, 18, 19, 14};
 const int magneticDoorSwitchPin = 33;
 
+// DHT22 settings
 #define DHTPIN 15
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
+// Power monitoring pins
+#define PIN_TEGANGAN 36 // ZMPT101B
+#define PIN_ARUS 34     // ACS712
+
+// Power monitoring variables
+float teganganKalibrasi = 100.0;
+float arusKalibrasi = 10.0;
+float offsetTegangan = 0;
+float offsetArus = 0;
+const int sampleCount = 10;
+int delayPerSample = 100;
+float totalEnergyKWh = 0.0;
+const float tarifPerKWh = 1352.0;
+unsigned long lastUpdateMillis = 0;
+
+// Relay states and timing
 bool relayStates[8] = {true, true, true, true, true, true, true, true};
 bool lastSwitchStates[4] = {HIGH, HIGH, HIGH, HIGH};
 unsigned long lastDebounceTimes[4] = {0, 0, 0, 0};
 const unsigned long debounceDelay = 50;
 
+// IR remote timing
 unsigned long lastIrTime = 0;
 const unsigned long irDebounceDelay = 300;
 
+// Relay 2 feature timing
 bool relay2FeatureActive = false;
 unsigned long relay2StartTime = 0;
 const unsigned long relay2OnTime = 2 * 60 * 1000;
 const unsigned long relay2OffTime = 5 * 60 * 1000;
 
+// Relay 3 timing
 unsigned long relay3StartTime = 0;
 const unsigned long relay3ActiveDuration = 10 * 1000;
 bool relay3Active = false;
 
 WebServer server(80);
 
+// Power monitoring functions
+float kalibrasiOffset(int pin) {
+    float total = 0;
+    for (int i = 0; i < sampleCount; i++) {
+        total += analogRead(pin);
+        delay(delayPerSample);
+    }
+    return total / sampleCount;
+}
+
+float bacaNilai(int pin, float offset, float kalibrasi) {
+    float total = 0;
+    for (int i = 0; i < sampleCount; i++) {
+        int adcValue = analogRead(pin);
+        float nilai = ((adcValue - offset) / 4095.0) * 3.3 * kalibrasi;
+        total += nilai > 0 ? nilai : 0;
+        delay(delayPerSample);
+    }
+    return total / sampleCount;
+}
+
 void setup() {
     Serial.begin(115200);
     while (!Serial);
 
+    // Initialize EEPROM and relays
     EEPROM.begin(512);
     for (int i = 0; i < 8; i++) {
         relayStates[i] = EEPROM.read(i);
@@ -48,31 +92,50 @@ void setup() {
         digitalWrite(relayPins[i], HIGH);
     }
 
+    // Initialize switches
     for (int i = 0; i < 4; i++) {
         pinMode(switchPins[i], INPUT_PULLUP);
     }
 
     pinMode(magneticDoorSwitchPin, INPUT_PULLUP);
 
+    // Initialize IR receiver
     IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
     printActiveIRProtocols(&Serial);
 
+    // Initialize power monitoring
+    pinMode(PIN_TEGANGAN, INPUT);
+    pinMode(PIN_ARUS, INPUT);
+    
+    Serial.println("Kalibrasi offset dimulai...");
+    for (int i = 0; i < 3; i++) {
+        offsetTegangan = kalibrasiOffset(PIN_TEGANGAN);
+        offsetArus = kalibrasiOffset(PIN_ARUS);
+        delay(1000);
+    }
+    lastUpdateMillis = millis();
+
+    // Start WiFi AP
     WiFi.softAP(ssid, password);
     Serial.println(WiFi.softAPIP());
 
+    // Initialize DHT
     dht.begin();
 
+    // Setup web server endpoints
     server.on("/", handleRoot);
     server.on("/status", handleStatus);
     server.on("/toggle", handleToggle);
     server.on("/relay2Feature", handleRelay2Feature);
     server.on("/dht", handleDHT);
+    server.on("/power", handlePower);
     server.begin();
 }
 
 void loop() {
     server.handleClient();
 
+    // Handle IR remote
     if (IrReceiver.decode()) {
         if ((millis() - lastIrTime) > irDebounceDelay) {
             lastIrTime = millis();
@@ -90,6 +153,7 @@ void loop() {
         IrReceiver.resume();
     }
 
+    // Handle switches
     for (int i = 0; i < 4; i++) {
         int reading = digitalRead(switchPins[i]);
         if (reading != lastSwitchStates[i]) {
@@ -99,7 +163,6 @@ void loop() {
         if ((millis() - lastDebounceTimes[i]) > debounceDelay) {
             if (reading != lastSwitchStates[i]) {
                 lastSwitchStates[i] = reading;
-
                 if (reading == LOW) {
                     toggleRelay(i);
                 }
@@ -107,6 +170,7 @@ void loop() {
         }
     }
 
+    // Handle relay2 feature
     if (relay2FeatureActive) {
         unsigned long elapsedTime = millis() - relay2StartTime;
         if (relayStates[1] && elapsedTime >= relay2OnTime) {
@@ -120,6 +184,7 @@ void loop() {
         }
     }
 
+    // Handle magnetic door switch
     int doorState = digitalRead(magneticDoorSwitchPin);
     if (doorState == HIGH && !relay3Active) {
         relay3Active = true;
@@ -166,19 +231,35 @@ String mapCommandToButtonName(uint8_t command) {
     }
 }
 
+void handlePower() {
+    float teganganAC = bacaNilai(PIN_TEGANGAN, offsetTegangan, teganganKalibrasi);
+    float arusAC = bacaNilai(PIN_ARUS, offsetArus, arusKalibrasi);
+    float dayaAC = teganganAC * arusAC;
+    
+    unsigned long currentMillis = millis();
+    float elapsedHours = (currentMillis - lastUpdateMillis) / 3600000.0;
+    lastUpdateMillis = currentMillis;
+    totalEnergyKWh += (dayaAC * elapsedHours) / 1000.0;
+    
+    float biayaSaatIni = totalEnergyKWh * tarifPerKWh;
+    float estimasiBiayaBulanan = (dayaAC / 1000.0) * tarifPerKWh * 24 * 30;
+
+    String response = "Tegangan: " + String(teganganAC) + " V\n";
+    response += "Arus: " + String(arusAC) + " A\n";
+    response += "Daya: " + String(dayaAC) + " W\n";
+    response += "Energi Total: " + String(totalEnergyKWh) + " kWh\n";
+    response += "Biaya: Rp " + String(biayaSaatIni) + "\n";
+    response += "Estimasi Biaya Bulanan: Rp " + String(estimasiBiayaBulanan);
+    
+    server.send(200, "text/plain", response);
+}
+
 void handleRoot() {
     float temperature = dht.readTemperature();
     float humidity = dht.readHumidity();
 
-    Serial.print("Temperature: ");
-    Serial.print(temperature);
-    Serial.println(" °C");
-    Serial.print("Humidity: ");
-    Serial.print(humidity);
-    Serial.println(" %");
-
     String html = "<html><head>";
-    html += "<title>ESP32 Relay Control</title>";
+    html += "<title>ESP32 IoT Control</title>";
     html += "<script>";
     // Function to update DHT readings
     html += "function updateDHT() {";
@@ -190,6 +271,18 @@ void handleRoot() {
     html += "      document.getElementById('humidity').innerHTML = hum;";
     html += "    });";
     html += "}";
+    
+    // Function to update power readings
+    html += "function updatePower() {";
+    html += "  fetch('/power')";
+    html += "    .then(response => response.text())";
+    html += "    .then(data => {";
+    html += "      const lines = data.split('\\n');";
+    html += "      const powerDiv = document.getElementById('powerReadings');";
+    html += "      powerDiv.innerHTML = lines.join('<br>');";
+    html += "    });";
+    html += "}";
+    
     // Update relay status
     html += "function updateRelayStatus() {";
     html += "  fetch('/status')";
@@ -199,22 +292,27 @@ void handleRoot() {
     html += "      statusDiv.innerHTML = data.replace(/\\n/g, '<br>');";
     html += "    });";
     html += "}";
+    
     // Toggle relay function
     html += "function toggleRelay(index) {";
     html += "  fetch('/toggle?relay=' + index)";
     html += "    .then(() => updateRelayStatus());";
     html += "}";
+    
     // Toggle relay2 feature function
     html += "function toggleRelay2Feature() {";
     html += "  fetch('/relay2Feature')";
     html += "    .then(() => updateRelayStatus());";
     html += "}";
+    
     // Set intervals for auto-update
-    html += "setInterval(updateDHT, 2000);"; // Update every 2 seconds
+    html += "setInterval(updateDHT, 2000);";
+    html += "setInterval(updatePower, 2000);";
     html += "setInterval(updateRelayStatus, 2000);";
     html += "</script></head><body>";
     
-    html += "<h1>ESP32 Relay Control</h1>";
+    html += "<h1>ESP32 IoT Control</h1>";
+    
     html += "<div id='relayStatus'>";
     for (int i = 0; i < 8; i++) {
         html += "Relay " + String(i + 1) + ": " + String(relayStates[i] ? "ON" : "OFF") + "<br>";
@@ -226,10 +324,14 @@ void handleRoot() {
     }
     html += "<button onclick=\"toggleRelay2Feature()\">Toggle Relay 2 Feature</button>";
 
+    html += "<h2>Sensor Readings</h2>";
     html += "<div id='dhtReadings'>";
     html += "<p id='temperature'>Temperature: " + String(temperature) + " °C</p>";
     html += "<p id='humidity'>Humidity: " + String(humidity) + " %</p>";
     html += "</div>";
+
+    html += "<h2>Power Monitoring</h2>";
+    html += "<div id='powerReadings'></div>";
 
     html += "</body></html>";
     server.send(200, "text/html", html);
