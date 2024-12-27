@@ -21,6 +21,25 @@ float totalEnergyKWh = 0.0; // Total energi dalam kWh
 const float tarifPerKWh = 1352.0; // Tarif listrik (Rp/kWh)
 unsigned long lastUpdateMillis = 0;
 
+// Fungsi untuk memformat angka ke format rupiah
+String formatRupiah(float value) {
+  String result = String((int)value);
+  int len = result.length();
+  int insertPosition = len - 3;
+
+  // Tambahkan titik setiap 3 digit dari belakang
+  while (insertPosition > 0) {
+    result = result.substring(0, insertPosition) + "." + result.substring(insertPosition);
+    insertPosition -= 3;
+  }
+
+  // Tambahkan dua digit desimal
+  int fraction = (value - (int)value) * 100;
+  result += "." + String(fraction < 10 ? "0" : "") + String(fraction);
+
+  return "Rp " + result;
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_TEGANGAN, INPUT);
@@ -79,12 +98,10 @@ void loop() {
   Serial.print("Energi Total: ");
   Serial.print(totalEnergyKWh);
   Serial.println(" kWh");
-  Serial.print("Biaya Energi Saat Ini: Rp ");
-  Serial.print(biayaSaatIni);
-  Serial.println();
-  Serial.print("Estimasi Biaya Bulanan Berdasarkan Konsumsi Saat Ini: Rp ");
-  Serial.print(estimasiBiayaBulanan);
-  Serial.println();
+  Serial.print("Biaya Energi Saat Ini: ");
+  Serial.println(formatRupiah(biayaSaatIni));
+  Serial.print("Estimasi Biaya Bulanan Berdasarkan Konsumsi Saat Ini: ");
+  Serial.println(formatRupiah(estimasiBiayaBulanan));
   Serial.println("--------------------------");
 
   delay(1000); // Delay antar tampilan hasil
