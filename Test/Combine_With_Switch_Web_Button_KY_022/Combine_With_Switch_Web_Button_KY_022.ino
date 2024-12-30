@@ -26,10 +26,10 @@ DHT dht(DHTPIN, DHTTYPE);
 #define PIN_ARUS 34     // ACS712
 
 // Power monitoring variables
-float teganganKalibrasi = 234.3; // Adjusted for 220V AC
-float arusKalibrasi = 30.0;      // Adjusted for ACS712 30A version
+float teganganKalibrasi = 100.0;
+float arusKalibrasi = 10.0;
 float offsetTegangan = 0;
-float offsetArus = 1650;         // Center point for ACS712
+float offsetArus = 0;
 const int sampleCount = 10;
 int delayPerSample = 100;
 float totalEnergyKWh = 0.0;
@@ -71,28 +71,13 @@ float kalibrasiOffset(int pin) {
 
 float bacaNilai(int pin, float offset, float kalibrasi) {
     float total = 0;
-    float maxValue = 0;
-    
-    // Take more samples for better accuracy
     for (int i = 0; i < sampleCount; i++) {
         int adcValue = analogRead(pin);
-        float nilai = abs(((adcValue - offset) / 4095.0) * 3.3 * kalibrasi);
-        
-        // Keep maximum value for current measurement
-        if (nilai > maxValue) {
-            maxValue = nilai;
-        }
-        
-        total += nilai;
-        delay(1);
+        float nilai = ((adcValue - offset) / 4095.0) * 3.3 * kalibrasi;
+        total += nilai > 0 ? nilai : 0;
+        delay(delayPerSample);
     }
-    
-    // Use RMS for voltage, max value for current
-    if (pin == PIN_TEGANGAN) {
-        return (total / sampleCount) * 0.707; // RMS conversion
-    } else {
-        return maxValue > 0.2 ? maxValue : 0; // Apply threshold for noise reduction
-    }
+    return total / sampleCount;
 }
 
 void setup() {
@@ -249,36 +234,22 @@ String mapCommandToButtonName(uint8_t command) {
 void handlePower() {
     float teganganAC = bacaNilai(PIN_TEGANGAN, offsetTegangan, teganganKalibrasi);
     float arusAC = bacaNilai(PIN_ARUS, offsetArus, arusKalibrasi);
-    
-    // Apply minimal thresholds
-    teganganAC = teganganAC < 1.0 ? 0 : teganganAC;
-    arusAC = arusAC < 0.1 ? 0 : arusAC;
-    
     float dayaAC = teganganAC * arusAC;
     
     unsigned long currentMillis = millis();
     float elapsedHours = (currentMillis - lastUpdateMillis) / 3600000.0;
     lastUpdateMillis = currentMillis;
-    
-    if (dayaAC > 0) {
-        totalEnergyKWh += (dayaAC * elapsedHours) / 1000.0;
-    }
+    totalEnergyKWh += (dayaAC * elapsedHours) / 1000.0;
     
     float biayaSaatIni = totalEnergyKWh * tarifPerKWh;
     float estimasiBiayaBulanan = (dayaAC / 1000.0) * tarifPerKWh * 24 * 30;
 
-    // Format currency with thousand separators
-    char biayaStr[32];
-    char estimasiStr[32];
-    sprintf(biayaStr, "%'d", (int)biayaSaatIni);
-    sprintf(estimasiStr, "%'d", (int)estimasiBiayaBulanan);
-
-    String response = "Tegangan: " + String(teganganAC, 1) + " V\n";
-    response += "Arus: " + String(arusAC, 2) + " A\n";
-    response += "Daya: " + String(dayaAC, 1) + " W\n";
-    response += "Energi Total: " + String(totalEnergyKWh, 3) + " kWh\n";
-    response += "Biaya: Rp " + String(biayaStr) + "\n";
-    response += "Estimasi Biaya Bulanan: Rp " + String(estimasiStr);
+    String response = "Tegangan: " + String(teganganAC) + " V\n";
+    response += "Arus: " + String(arusAC) + " A\n";
+    response += "Daya: " + String(dayaAC) + " W\n";
+    response += "Energi Total: " + String(totalEnergyKWh) + " kWh\n";
+    response += "Biaya: Rp " + String(biayaSaatIni) + "\n";
+    response += "Estimasi Biaya Bulanan: Rp " + String(estimasiBiayaBulanan);
     
     server.send(200, "text/plain", response);
 }
