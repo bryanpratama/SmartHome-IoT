@@ -1,6 +1,7 @@
 # SmartHome-IoT
 
-**SmartHome-IoT** adalah proyek sistem otomasi rumah berbasis ESP32 yang menggunakan berbagai sensor untuk pemantauan dan pengendalian. Proyek ini dirancang untuk memberikan solusi sederhana dan efisien bagi pengelolaan perangkat rumah tangga secara otomatis melalui integrasi sensor dan modul.
+**SmartHome-IoT** adalah proyek sistem otomasi rumah berbasis ESP32 yang dirancang untuk memberikan solusi sederhana dan efisien dalam mengelola perangkat rumah tangga secara otomatis. Sistem ini menggunakan berbagai sensor untuk pemantauan suhu, kelembapan, arus listrik, dan deteksi gerakan, serta memungkinkan pengendalian perangkat seperti lampu dan kipas secara otomatis. Dengan memanfaatkan teknologi Internet of Things (IoT), proyek ini bertujuan untuk meningkatkan kenyamanan dan efisiensi energi di rumah dengan kontrol yang lebih mudah dan lebih cerdas.
+
 
 ## **Fitur**
 - **Pemantauan Suhu dan Kelembapan** menggunakan **DHT22** untuk mengetahui kondisi lingkungan.  
@@ -11,16 +12,67 @@
 - **Pengukuran Tegangan** menggunakan **ZMPT101B** untuk memantau tegangan listrik rumah.  
 - **Transmisi IR** melalui **KY005 IR Transmitter**, memberikan kemampuan untuk mengendalikan perangkat berbasis IR seperti TV atau AC.
 
-## **Komponen Utama**
-1. **ESP32**: Mikrokontroler yang menjadi inti pengolahan dan komunikasi.  
-2. **Sensor:**
-   - **DHT22**: Mengukur suhu dan kelembapan.  
-   - **ACS712-20**: Mengukur arus listrik.  
-   - **MC38 Magnetic Switch**: Sensor pintu.  
-   - **PIR Motion Sensor**: Deteksi gerakan.  
-   - **ZMPT101B**: Mengukur tegangan listrik.  
-   - **KY005 IR Transmitter**: Modul pengirim sinyal IR.  
-3. **Relay 8 Channel**: Mengontrol berbagai perangkat elektronik.  
+## **Persyaratan Sistem**
+Sebelum memulai, pastikan Anda memiliki perangkat dan perangkat lunak berikut:
+
+- Perangkat Keras:
+  - ESP32 (dapat menggunakan model apa saja, pastikan memiliki cukup pin GPIO)
+  - DHT22 (untuk pengukuran suhu dan kelembapan)
+  - ACS712-20 (untuk pemantauan arus listrik)
+  - MC38 Magnetic Switch (untuk sensor pintu)
+  - PIR Motion Sensor (untuk deteksi gerakan)
+  - ZMPT101B (untuk pengukuran tegangan listrik)
+  - KY005 IR Transmitter (untuk transmisi IR)
+  - Relay 8 Channel (untuk kontrol perangkat rumah tangga)
+- Perangkat Lunak:
+  - Arduino IDE atau PlatformIO untuk pemrograman ESP32
+  - Library yang dibutuhkan:
+  - DHT untuk sensor suhu dan kelembapan
+  - Adafruit_Sensor untuk sensor DHT22
+  - IRremote untuk kontrol perangkat berbasis IR
+
+## **Instalasi**
+Berikut adalah langkah-langkah untuk menginstal dan menyiapkan proyek ini:
+
+1. **Persiapkan Arduino IDE atau PlatformIO:**
+
+   - Unduh dan instal Arduino IDE dari situs resmi Arduino atau pasang PlatformIO melalui Visual Studio Code.
+
+2. **Instal Board ESP32 di Arduino IDE:**
+
+
+   - Buka Arduino IDE, pergi ke File > Preferences, dan tambahkan URL board ESP32 pada Additional Boards Manager URLs:
+   https://dl.espressif.com/dl/package_esp32_index.json
+   - Pergi ke Tools > Board > Board Manager, cari "ESP32" dan instal.
+
+
+3. **Instal Library yang Diperlukan:**
+
+   - Instal library yang dibutuhkan melalui Sketch > Include Library > Manage Libraries, lalu cari dan instal:
+     - DHT sensor library
+     - ACS712 untuk sensor arus
+     - IRremote untuk modul IR
+
+4. **Koneksi Hardware:**
+
+
+   - Hubungkan komponen seperti ESP32, sensor, dan relay ke papan sesuai dengan diagram pin yang telah disediakan.
+
+5. **Upload Kode:**
+
+      - Pilih board ESP32 yang sesuai di Tools > Board, pilih port yang digunakan, dan upload kode program.
+
+
+## **Penggunaan**
+Setelah proyek berhasil diinstal dan dikonfigurasi, Anda dapat menggunakan sistem otomasi rumah ini untuk mengendalikan perangkat rumah tangga dan memantau kondisi lingkungan secara otomatis. Berikut adalah contoh penggunaan:
+
+1. **Pemantauan Suhu dan Kelembapan:** Sistem secara terus-menerus memonitor suhu dan kelembapan lingkungan rumah menggunakan sensor DHT22 dan menampilkan hasilnya di konsol atau antarmuka pengguna.
+
+2. **Pengendalian Perangkat Listrik:** Anda dapat mengontrol perangkat seperti lampu dan kipas menggunakan Relay 8 Channel. Sistem dapat diprogram untuk menyalakan atau mematikan perangkat berdasarkan kondisi suhu atau deteksi gerakan.
+
+3. **Peringatan Keamanan:** Jika sensor MC38 Magnetic Switch mendeteksi pintu terbuka atau sensor PIR Motion mendeteksi gerakan, sistem dapat memberikan peringatan atau melakukan tindakan tertentu (misalnya, menyalakan lampu atau mengaktifkan alarm).
+
+4. **Kontrol Jarak Jauh:** Dengan modul KY005 IR Transmitter, sistem dapat mengendalikan perangkat berbasis IR seperti TV atau AC melalui transmisi sinyal IR yang dikirim oleh ESP32.
 
 ## **Diagram Sistem**
 Berikut adalah gambaran umum arsitektur sistem:  
